@@ -1,25 +1,20 @@
-import hash from "../services/hash";
 import prisma from "./client";
+import createUser from "./user";
 
 async function main() {
   await prisma.$connect();
 
-  const password = await hash("admin");
+  const user = await createUser();
 
-  const user = await prisma.user.findFirst({
+  const row = await prisma.user.findFirst({
     where: {
-      username: "admin",
+      username: user.username,
     },
   });
 
-  if (!user) {
+  if (!row) {
     await prisma.user.create({
-      data: {
-        name: "admin",
-        lastName: "admin",
-        username: "admin",
-        password,
-      },
+      data: user,
     });
   }
 }

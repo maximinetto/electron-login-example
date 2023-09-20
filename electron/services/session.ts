@@ -1,12 +1,11 @@
 // En el proceso principal
 import { User } from "@prisma/client";
 import { ipcMain } from "electron";
-import prisma from "../db/client";
-import compareStrings from "./compareStrings";
+import validateUser from "./validateUser";
 
 const session: {
   isAuthenticated: boolean;
-  user: Omit<User, "password"> | null;
+  user: Partial<Omit<User, "password">> | null;
 } = {
   isAuthenticated: false,
   user: null,
@@ -18,7 +17,7 @@ ipcMain.on(
     event,
     { username, password }: { username: string; password: string }
   ) => {
-    const isValid = await validateUser(username, password);
+    const isValid = await validateSession(username, password);
     if (isValid) {
       event.sender.send("login-success", {
         isAuthenticated: true,
@@ -50,25 +49,15 @@ ipcMain.on("check-session", (event) => {
   }
 });
 
-async function validateUser(username: string, password: string) {
+async function validateSession(username: string, password: string) {
   const invalidCredentials = () => {
     clearSession();
     return false;
   };
 
-  const user = await prisma.user.findUnique({
-    where: {
-      username,
-    },
-  });
+  const [isValid, user] = await validateUser(username, password);
 
-  if (!user) return invalidCredentials();
-
-  const matches = await compareStrings(password, user.password);
-  if (!matches) return invalidCredentials();
-
-  const userWithoutPassword: Partial<User> = { ...user };
-  delete userWithoutPassword.password;
+  if (!isValid) return invalidCredentials();
   session.isAuthenticated = true;
   session.user = user;
   return true;
